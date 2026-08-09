@@ -1,0 +1,19 @@
+# Secrets and local configuration
+.env
+
+# Python virtual environments and cache files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local uploads may contain user source code and must not be committed.
+app/uploads/*
+!app/uploads/.gitkeep
+
+# IDE and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

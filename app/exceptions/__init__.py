@@ -1,0 +1,1 @@
+"""Custom exceptions used by the application."""

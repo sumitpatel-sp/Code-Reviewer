@@ -1,0 +1,41 @@
+services:
+  api:
+    # Build the FastAPI image from the Dockerfile in this folder.
+    build: .
+    container_name: code-review-api
+    ports:
+      - "8000:8000"
+    # Step 4 creates this file and supplies secrets without committing them.
+    env_file:
+      - .env
+    volumes:
+      # Mount source code for convenient local development.
+      - ./:/code
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  mysql:
+    image: mysql:8.4
+    container_name: code-review-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      # A named volume keeps database records when containers restart.
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      # MySQL must be ready before the API attempts its first database connection.
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mysql_data:

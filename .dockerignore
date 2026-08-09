@@ -1,0 +1,9 @@
+# Do not copy local secrets, virtual environments, generated files, or Git history.
+.env
+.venv
+venv
+__pycache__
+*.py[cod]
+.git
+.pytest_cache
+app/uploads
