@@ -1,6 +1,7 @@
 """Application settings loaded from environment variables."""
 
 from functools import lru_cache
+from urllib.parse import quote
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -34,9 +35,14 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        """Build the MySQL connection URL required by SQLAlchemy."""
+        """Build the MySQL connection URL required by SQLAlchemy.
+
+        The password is URL-encoded so that special characters such as '@'
+        do not confuse the URL parser.
+        """
+        encoded_password = quote(self.mysql_password, safe="")
         return (
-            f"mysql+pymysql://{self.mysql_user}:{self.mysql_password}"
+            f"mysql+pymysql://{self.mysql_user}:{encoded_password}"
             f"@{self.mysql_host}:{self.mysql_port}/{self.mysql_database}"
         )
 

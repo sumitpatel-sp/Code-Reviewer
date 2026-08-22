@@ -51,6 +51,15 @@ async def upload_repository(
             review_result["final_summary"],
             review_result,
         )
+
+        # Save the final summary to report.md so it is visible in the project folder.
+        try:
+            report_path = Path("report.md")
+            report_path.write_text(review_result["final_summary"], encoding="utf-8")
+            logger.info("Report saved to %s", report_path.resolve())
+        except Exception:
+            logger.warning("Could not write report.md to disk — results are still in the database.")
+
         logger.info("Analysis finished for repository ID: %s", repository.id)
         return UploadAnalysisResponse(
             repository_id=repository.id,

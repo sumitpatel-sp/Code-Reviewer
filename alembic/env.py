@@ -1,7 +1,7 @@
 from logging.config import fileConfig
 
+from sqlalchemy import create_engine, pool
 from sqlalchemy import engine_from_config
-from sqlalchemy import pool
 
 from alembic import context
 
@@ -11,7 +11,10 @@ config = context.config
 
 from app.config import get_settings
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+
+# Do NOT use config.set_main_option() here — configparser treats % as a
+# special interpolation character and will error on URL-encoded passwords
+# like %40. Instead we pass the URL directly to the engine below.
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -20,16 +23,9 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 import app.models  # noqa
 from app.database import Base
 target_metadata = Base.metadata
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
 
 def run_migrations_offline() -> None:
@@ -44,9 +40,8 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url,
+        url=settings.database_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -63,11 +58,10 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    # Build the engine directly from the settings URL so that URL-encoded
+    # characters (e.g. %40 for @) are handled correctly and never passed
+    # through configparser which would mis-interpret the % sign.
+    connectable = create_engine(settings.database_url, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
         context.configure(
