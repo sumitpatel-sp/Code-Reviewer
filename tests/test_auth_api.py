@@ -18,7 +18,7 @@ def test_register_login_and_get_current_user(client: TestClient) -> None:
 
     login_response = client.post(
         "/login",
-        json={"email": "ada@example.com", "password": "safe-password-123"},
+        data={"username": "ada@example.com", "password": "safe-password-123"},
     )
     assert login_response.status_code == 200
     access_token = login_response.json()["access_token"]
@@ -40,6 +40,6 @@ def test_login_rejects_wrong_password(client: TestClient) -> None:
     )
     response = client.post(
         "/login",
-        json={"email": "ada@example.com", "password": "wrong-password-123"},
+        data={"username": "ada@example.com", "password": "wrong-password-123"},
     )
     assert response.status_code == 401

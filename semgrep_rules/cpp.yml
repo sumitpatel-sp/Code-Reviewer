@@ -1,0 +1,94 @@
+rules:
+  # ── Security / Memory Safety ─────────────────────────────────────────────────
+
+  - id: cpp-gets-usage
+    languages: [cpp]
+    severity: ERROR
+    message: >
+      `gets()` is unsafe and has been removed from C11 and C++14. It cannot
+      prevent buffer overflows because it does not limit the number of
+      characters read. Use `fgets()` or `std::getline()` instead.
+    patterns:
+      - pattern: gets(...)
+    metadata:
+      category: Security
+      cwe: "CWE-120"
+
+  - id: cpp-strcpy-usage
+    languages: [cpp]
+    severity: ERROR
+    message: >
+      `strcpy()` does not check destination buffer size and can cause buffer
+      overflows. Use `strncpy()`, `strlcpy()`, or `std::string` instead.
+    patterns:
+      - pattern: strcpy(...)
+    metadata:
+      category: Security
+      cwe: "CWE-120"
+
+  - id: cpp-strcat-usage
+    languages: [cpp]
+    severity: ERROR
+    message: >
+      `strcat()` does not check destination buffer size and can cause buffer
+      overflows. Use `strncat()`, `strlcat()`, or `std::string::append()`
+      instead.
+    patterns:
+      - pattern: strcat(...)
+    metadata:
+      category: Security
+      cwe: "CWE-120"
+
+  - id: cpp-sprintf-usage
+    languages: [cpp]
+    severity: WARNING
+    message: >
+      `sprintf()` does not perform bounds checking on the output buffer. Use
+      `snprintf()` with an explicit buffer size or `std::ostringstream` instead.
+    patterns:
+      - pattern: sprintf(...)
+    metadata:
+      category: Security
+      cwe: "CWE-120"
+
+  - id: cpp-printf-user-input
+    languages: [cpp]
+    severity: WARNING
+    message: >
+      Passing a potentially attacker-controlled format string directly to
+      `printf()` enables format-string exploits. Always use a literal format
+      string: `printf("%s", user_input)`.
+    patterns:
+      - pattern: printf($VAR, ...)
+    metadata:
+      category: Security
+      cwe: "CWE-134"
+
+  - id: cpp-system-call
+    languages: [cpp]
+    severity: ERROR
+    message: >
+      `system()` passes the command to the shell, enabling command injection.
+      Use `execv()` family functions with validated arguments instead.
+    patterns:
+      - pattern: system(...)
+    metadata:
+      category: Security
+      cwe: "CWE-78"
+
+  - id: cpp-malloc-no-check
+    languages: [cpp]
+    severity: WARNING
+    message: >
+      The return value of `malloc()` is not checked for NULL. A NULL return
+      means allocation failed; dereferencing it causes undefined behaviour.
+      Always check the return value before use.
+    pattern-not-inside: |
+      if (...) ...
+    patterns:
+      - pattern: |
+          $PTR = malloc(...);
+          *$PTR;
+    metadata:
+      category: Bug
+      cwe: "CWE-476"

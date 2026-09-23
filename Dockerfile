@@ -6,6 +6,7 @@ WORKDIR /code
 
 # Copy dependencies first so Docker can reuse this layer when only source code changes.
 COPY requirements.txt ./
+# Installs all Python dependencies including semgrep (cross-language static analysis).
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Copy the remaining project files after dependencies are installed.

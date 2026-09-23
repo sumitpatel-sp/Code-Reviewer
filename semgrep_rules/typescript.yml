@@ -1,0 +1,63 @@
+rules:
+  # ── Security ────────────────────────────────────────────────────────────────
+
+  - id: ts-eval-use
+    languages: [typescript]
+    severity: ERROR
+    message: >
+      `eval()` executes arbitrary code at runtime. It bypasses TypeScript's
+      type safety and is a common XSS/injection vector. Avoid it entirely.
+    patterns:
+      - pattern: eval(...)
+    metadata:
+      category: Security
+      cwe: "CWE-95"
+
+  - id: ts-innerhtml-assignment
+    languages: [typescript]
+    severity: ERROR
+    message: >
+      Assigning to `innerHTML` with unvalidated data causes XSS. Use
+      `textContent` for plain text or a sanitisation utility for trusted HTML.
+    patterns:
+      - pattern: $EL.innerHTML = $VAL
+    metadata:
+      category: Security
+      cwe: "CWE-79"
+
+  - id: ts-no-explicit-any
+    languages: [typescript]
+    severity: INFO
+    message: >
+      Using the `any` type defeats TypeScript's static type checking.
+      Prefer a specific type, `unknown`, or a well-typed generic instead.
+    patterns:
+      - pattern: ": any"
+    metadata:
+      category: Quality
+
+  - id: ts-no-console-log
+    languages: [typescript]
+    severity: INFO
+    message: >
+      `console.log()` found. Remove debug output from production code or
+      replace with a structured logging library.
+    patterns:
+      - pattern: console.log(...)
+    metadata:
+      category: Quality
+
+  - id: ts-hardcoded-secret
+    languages: [typescript]
+    severity: WARNING
+    message: >
+      A variable named like a credential is assigned a hard-coded string.
+      Store secrets in environment variables or a secrets manager.
+    patterns:
+      - pattern: const $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|secret|api_key|apikey|token|auth_key|private_key)
+    metadata:
+      category: Security
+      cwe: "CWE-259"

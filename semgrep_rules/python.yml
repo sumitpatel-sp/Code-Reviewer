@@ -1,0 +1,136 @@
+rules:
+  # ── Security ────────────────────────────────────────────────────────────────
+
+  - id: python-eval-use
+    languages: [python]
+    severity: ERROR
+    message: >
+      Use of `eval()` is dangerous. It executes arbitrary Python code and is
+      a common vector for code-injection attacks. Replace with a safe
+      alternative such as `ast.literal_eval()` for data parsing.
+    patterns:
+      - pattern: eval(...)
+    metadata:
+      category: Security
+      cwe: "CWE-95"
+
+  - id: python-exec-use
+    languages: [python]
+    severity: ERROR
+    message: >
+      Use of `exec()` allows arbitrary code execution. Avoid it in production
+      code; prefer well-defined control flows or restricted DSLs.
+    patterns:
+      - pattern: exec(...)
+    metadata:
+      category: Security
+      cwe: "CWE-95"
+
+  - id: python-subprocess-shell-true
+    languages: [python]
+    severity: ERROR
+    message: >
+      subprocess called with shell=True enables shell injection. Pass a list
+      of arguments instead and set shell=False (the default).
+    patterns:
+      - pattern: subprocess.$FUNC(..., shell=True, ...)
+    metadata:
+      category: Security
+      cwe: "CWE-78"
+
+  - id: python-os-system
+    languages: [python]
+    severity: ERROR
+    message: >
+      `os.system()` passes the command string to the shell, enabling
+      injection. Use `subprocess.run()` with a list of arguments instead.
+    patterns:
+      - pattern: os.system(...)
+    metadata:
+      category: Security
+      cwe: "CWE-78"
+
+  - id: python-pickle-loads
+    languages: [python]
+    severity: ERROR
+    message: >
+      `pickle.loads()` / `pickle.load()` deserialises arbitrary Python objects
+      and can execute malicious code embedded in the payload. Use a safe
+      serialisation format such as JSON.
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+    metadata:
+      category: Security
+      cwe: "CWE-502"
+
+  - id: python-hardcoded-password-assignment
+    languages: [python]
+    severity: WARNING
+    message: >
+      A variable named like a credential is assigned a hard-coded string
+      literal. Store secrets in environment variables or a secrets manager.
+    patterns:
+      - pattern: $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|secret|api_key|apikey|token|auth_key|private_key)
+    metadata:
+      category: Security
+      cwe: "CWE-259"
+
+  - id: python-assert-used
+    languages: [python]
+    severity: WARNING
+    message: >
+      `assert` statements are stripped by the Python optimiser when run with
+      -O. Do not rely on assertions for security or input-validation checks;
+      use explicit `if/raise` guards instead.
+    patterns:
+      - pattern: assert ...
+    metadata:
+      category: Quality
+
+  # ── Quality ─────────────────────────────────────────────────────────────────
+
+  - id: python-print-statement
+    languages: [python]
+    severity: INFO
+    message: >
+      `print()` found in production code. Replace with structured logging
+      (`logging.info()` / `logging.debug()` etc.) so output can be controlled
+      at runtime.
+    patterns:
+      - pattern: print(...)
+    metadata:
+      category: Quality
+
+  - id: python-bare-except
+    languages: [python]
+    severity: WARNING
+    message: >
+      A bare `except:` clause catches every exception including
+      `SystemExit` and `KeyboardInterrupt`. Catch specific exception types
+      or use `except Exception` at minimum.
+    patterns:
+      - pattern: |
+          try:
+            ...
+          except:
+            ...
+    metadata:
+      category: Bug
+
+  - id: python-mutable-default-argument
+    languages: [python]
+    severity: WARNING
+    message: >
+      Using a mutable object (list, dict, set) as a default argument value
+      is a common Python gotcha. The same object is shared across all calls.
+      Use `None` as the default and initialise inside the function body.
+    pattern-either:
+      - pattern: "def $F(..., $ARG=[], ...): ..."
+      - pattern: "def $F(..., $ARG={}, ...): ..."
+      - pattern: "def $F(..., $ARG=set(), ...): ..."
+    metadata:
+      category: Bug

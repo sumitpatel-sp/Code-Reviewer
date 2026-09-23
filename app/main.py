@@ -4,6 +4,7 @@ import logging
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 
@@ -21,9 +22,31 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.app_name,
-    version="1.0.0",
-    description="Upload a project ZIP and receive a multi-agent AI code-review report.",
+    version="2.0.0",
+    description=(
+        "AI-powered multi-agent code review platform. "
+        "Upload a project ZIP to receive structured findings, ML risk prediction, "
+        "and a professional review report."
+    ),
 )
+
+# CORS — allow frontend origins (localhost, 127.0.0.1 on any port) during development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+    ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth.router)
 app.include_router(repositories.router)
 app.include_router(reports.router)
@@ -73,6 +96,10 @@ async def handle_unexpected_error(_: Request, error: Exception) -> JSONResponse:
 
 
 @app.get("/", tags=["Health"])
-def health_check() -> dict[str, str]:
+def root_health_check() -> dict[str, str]:
     """Return a small confirmation that the API process is running."""
-    return {"message": "AI Multi-Agent Code Review Platform is running."}
+    return {
+        "message": "AI Multi-Agent Code Review Platform v2.0 is running.",
+        "docs": "/docs",
+        "features": "multi-agent LLM review, static analysis, ML risk prediction, structured findings",
+    }

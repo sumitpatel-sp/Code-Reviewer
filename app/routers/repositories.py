@@ -1,5 +1,6 @@
 """Repository upload and management REST endpoints."""
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -15,9 +16,11 @@ from app.crud.repository import (
 from app.dependencies.auth import CurrentUser, DatabaseSession
 from app.exceptions.custom_exceptions import ResourceNotFoundError
 from app.langgraph.workflow import build_review_graph
+from app.schemas.finding import FindingSchema
 from app.schemas.repository import RepositoryResponse
 from app.schemas.report import UploadAnalysisResponse
 from app.services.file_service import delete_uploaded_zip, save_uploaded_zip
+from app.services.finding_aggregator import count_by_severity
 from app.services.repository_service import (
     delete_extraction_folder,
     extract_repository_zip,
@@ -37,36 +40,84 @@ async def upload_repository(
 ) -> UploadAnalysisResponse:
     """Save a ZIP, run the AI workflow, and persist the repository and report."""
     repository_name, zip_path = await save_uploaded_zip(uploaded_file)
-    extraction_path: Path | None = None
+    extraction_path = None
     try:
         logger.info("Analysis started for ZIP: %s", repository_name)
         extraction_path = extract_repository_zip(zip_path)
         source_files = read_source_files(extraction_path)
-        review_result = build_review_graph().invoke({"source_files": source_files})
+        review_result = await asyncio.to_thread(
+            build_review_graph().invoke,
+            {
+                "source_files": source_files,
+                # Pass the extraction path so the Semgrep workflow node can scan
+                # the real filesystem tree.  The finally-block below remains the
+                # sole owner responsible for deleting this directory.
+                "extraction_path": str(extraction_path),
+            },
+        )
+
+        # Parse structured findings from the result
+        raw_findings: list[dict] = review_result.get("findings", [])
+        parsed_findings: list[FindingSchema] = []
+        for raw in raw_findings:
+            try:
+                parsed_findings.append(FindingSchema(**raw))
+            except Exception:
+                pass
+
+        severity_counts = count_by_severity(parsed_findings)
+        ml_prediction = review_result.get("ml_risk_prediction")
+
         repository = create_repository(db, current_user.id, repository_name, zip_path)
         report = create_report(
             db,
             repository.id,
-            review_result["overall_score"],
-            review_result["final_summary"],
+            review_result.get("overall_score", 0.0),
+            review_result.get("final_summary", ""),
             review_result,
+            findings=parsed_findings,
+            ml_prediction=ml_prediction,
         )
 
-        # Save the final summary to report.md so it is visible in the project folder.
+        # Save a Markdown report to disk for convenience
         try:
             report_path = Path("report.md")
-            report_path.write_text(review_result["final_summary"], encoding="utf-8")
+            report_path.write_text(review_result.get("final_summary", ""), encoding="utf-8")
             logger.info("Report saved to %s", report_path.resolve())
-        except Exception:
-            logger.warning("Could not write report.md to disk — results are still in the database.")
+        except OSError:
+            logger.warning("Could not write report.md — results are still in the database.")
 
         logger.info("Analysis finished for repository ID: %s", repository.id)
         return UploadAnalysisResponse(
             repository_id=repository.id,
             report_id=report.id,
             overall_score=report.overall_score,
+            quality_score=report.quality_score,
+            security_score=report.security_score,
+            performance_score=report.performance_score,
+            maintainability_score=report.maintainability_score,
+            testing_score=report.testing_score,
+            finding_count=len(parsed_findings),
+            critical_count=severity_counts.get("CRITICAL", 0),
+            high_count=severity_counts.get("HIGH", 0),
+            medium_count=severity_counts.get("MEDIUM", 0),
+            low_count=severity_counts.get("LOW", 0),
+            ml_risk_priority=ml_prediction.get("review_priority") if ml_prediction else None,
+            ml_defect_probability=ml_prediction.get("defect_probability") if ml_prediction else None,
+            human_review_recommended=ml_prediction.get("human_review_recommended") if ml_prediction else None,
             message="Repository uploaded and analyzed successfully.",
         )
+    except RuntimeError as exc:
+        delete_uploaded_zip(zip_path)
+        logger.exception("AI workflow failed for: %s", repository_name)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                f"The AI code review could not be completed: {exc}. "
+                "This is usually a temporary Gemini API error. "
+                "Please wait a minute and try again."
+            ),
+        ) from exc
     except Exception:
         delete_uploaded_zip(zip_path)
         logger.exception("Repository analysis failed for: %s", repository_name)
@@ -74,6 +125,7 @@ async def upload_repository(
     finally:
         if extraction_path is not None:
             delete_extraction_folder(extraction_path)
+
 
 
 @router.get("/repositories", response_model=list[RepositoryResponse])

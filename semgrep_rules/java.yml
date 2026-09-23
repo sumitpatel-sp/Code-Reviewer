@@ -1,0 +1,70 @@
+rules:
+  # ── Security ────────────────────────────────────────────────────────────────
+
+  - id: java-runtime-exec
+    languages: [java]
+    severity: ERROR
+    message: >
+      `Runtime.getRuntime().exec()` or `ProcessBuilder` invoked with a string
+      that may include user-supplied input enables OS command injection.
+      Validate and whitelist all input before passing it to a process.
+    patterns:
+      - pattern: Runtime.getRuntime().exec(...)
+    metadata:
+      category: Security
+      cwe: "CWE-78"
+
+  - id: java-sql-string-concat
+    languages: [java]
+    severity: ERROR
+    message: >
+      Building a SQL query by string concatenation with user input opens the
+      door to SQL injection. Use PreparedStatement with parameterised queries.
+    patterns:
+      - pattern: $STR + $INPUT
+      - metavariable-regex:
+          metavariable: $STR
+          regex: (?i)(select|insert|update|delete|from|where)
+    metadata:
+      category: Security
+      cwe: "CWE-89"
+
+  - id: java-system-exit
+    languages: [java]
+    severity: WARNING
+    message: >
+      Calling `System.exit()` inside application logic terminates the whole
+      JVM, bypassing finally blocks and shutdown hooks. Throw an exception
+      or return an error code instead.
+    patterns:
+      - pattern: System.exit(...)
+    metadata:
+      category: Quality
+
+  - id: java-printStackTrace
+    languages: [java]
+    severity: INFO
+    message: >
+      `e.printStackTrace()` sends the stack trace to stderr, which may expose
+      internal details in production logs. Use a proper logging framework
+      (SLF4J, Log4j2, etc.) and log at the appropriate level.
+    patterns:
+      - pattern: $E.printStackTrace()
+    metadata:
+      category: Quality
+
+  - id: java-hardcoded-password
+    languages: [java]
+    severity: WARNING
+    message: >
+      A variable whose name suggests it is a credential is assigned a
+      hard-coded string. Store secrets in environment variables,
+      configuration files, or a secrets manager.
+    patterns:
+      - pattern: String $VAR = "...";
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|secret|apikey|api_key|token|authkey|privatekey)
+    metadata:
+      category: Security
+      cwe: "CWE-259"

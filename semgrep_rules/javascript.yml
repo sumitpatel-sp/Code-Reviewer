@@ -1,0 +1,79 @@
+rules:
+  # ── Security ────────────────────────────────────────────────────────────────
+
+  - id: js-eval-use
+    languages: [javascript]
+    severity: ERROR
+    message: >
+      `eval()` executes arbitrary JavaScript and is a severe XSS/code-injection
+      risk. Replace with safer alternatives such as `JSON.parse()` for data or
+      a proper template engine for HTML generation.
+    patterns:
+      - pattern: eval(...)
+    metadata:
+      category: Security
+      cwe: "CWE-95"
+
+  - id: js-innerhtml-assignment
+    languages: [javascript]
+    severity: ERROR
+    message: >
+      Assigning directly to `innerHTML` can introduce Cross-Site Scripting
+      (XSS) vulnerabilities if the value contains user-controlled content.
+      Use `textContent` for plain text or a sanitisation library for HTML.
+    patterns:
+      - pattern: $EL.innerHTML = $VAL
+    metadata:
+      category: Security
+      cwe: "CWE-79"
+
+  - id: js-document-write
+    languages: [javascript]
+    severity: WARNING
+    message: >
+      `document.write()` can open the document and cause XSS if called with
+      untrusted input. Prefer DOM manipulation methods such as
+      `document.createElement` and `appendChild`.
+    patterns:
+      - pattern: document.write(...)
+    metadata:
+      category: Security
+      cwe: "CWE-79"
+
+  - id: js-no-console-log
+    languages: [javascript]
+    severity: INFO
+    message: >
+      `console.log()` found. Remove debug logging from production code or
+      replace it with a structured logging library.
+    patterns:
+      - pattern: console.log(...)
+    metadata:
+      category: Quality
+
+  - id: js-prototype-pollution
+    languages: [javascript]
+    severity: ERROR
+    message: >
+      Setting properties on `Object.prototype` can pollute every object in the
+      runtime, leading to unexpected behaviour and security vulnerabilities.
+    patterns:
+      - pattern: Object.prototype.$PROP = ...
+    metadata:
+      category: Security
+      cwe: "CWE-1321"
+
+  - id: js-hardcoded-secret
+    languages: [javascript]
+    severity: WARNING
+    message: >
+      A variable named like a credential is assigned a hard-coded string.
+      Store secrets in environment variables or a dedicated secrets manager.
+    patterns:
+      - pattern: const $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|secret|api_key|apikey|token|auth_key|private_key)
+    metadata:
+      category: Security
+      cwe: "CWE-259"
